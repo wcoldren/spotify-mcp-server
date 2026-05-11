@@ -1,4 +1,4 @@
-import type { MaxInt } from '@spotify/web-api-ts-sdk';
+import type { MaxInt, Page, PlaylistedTrack } from '@spotify/web-api-ts-sdk';
 import { z } from 'zod';
 import type { SpotifyHandlerExtra, SpotifyTrack, tool } from './types.js';
 import {
@@ -6,6 +6,7 @@ import {
   formatDuration,
   handleSpotifyRequest,
   loadSpotifyConfig,
+  spotifyFetch,
 } from './utils.js';
 
 function isTrack(item: any): item is SpotifyTrack {
@@ -277,15 +278,13 @@ const getPlaylistTracks: tool<{
   handler: async (args, _extra: SpotifyHandlerExtra) => {
     const { playlistId, limit = 50, offset = 0 } = args;
 
-    const playlistTracks = await handleSpotifyRequest(async (spotifyApi) => {
-      return await spotifyApi.playlists.getPlaylistItems(
-        playlistId,
-        undefined,
-        undefined,
-        limit as MaxInt<50>,
-        offset,
-      );
+    const qs = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
     });
+    const playlistTracks = await spotifyFetch<Page<PlaylistedTrack>>(
+      `/playlists/${encodeURIComponent(playlistId)}/items?${qs.toString()}`,
+    );
 
     if ((playlistTracks.items?.length ?? 0) === 0) {
       return {

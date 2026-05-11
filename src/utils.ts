@@ -368,3 +368,37 @@ export async function handleSpotifyRequest<T>(
     throw error;
   }
 }
+
+const SPOTIFY_API = 'https://api.spotify.com/v1';
+
+// Direct Spotify REST call bypassing @spotify/web-api-ts-sdk.
+// Used for endpoints removed in the Feb 2026 migration that the SDK still hits
+// at deprecated paths. Refresh is delegated to createSpotifyApi().
+export async function spotifyFetch<T = unknown>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  await createSpotifyApi();
+  const { accessToken } = loadSpotifyConfig();
+  if (!accessToken) {
+    throw new Error('No access token available. Run `npm run auth`.');
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+    ...((init.headers as Record<string, string> | undefined) ?? {}),
+  };
+
+  const response = await fetch(`${SPOTIFY_API}${path}`, { ...init, headers });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(
+      `Spotify API ${response.status} on ${init.method ?? 'GET'} ${path}: ${body}`,
+    );
+  }
+
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
+}

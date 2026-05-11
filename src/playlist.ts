@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { SpotifyHandlerExtra, tool } from './types.js';
-import { handleSpotifyRequest } from './utils.js';
+import { handleSpotifyRequest, spotifyFetch } from './utils.js';
 
 const getPlaylist: tool<{
   playlistId: z.ZodString;
@@ -175,12 +175,16 @@ const removeTracksFromPlaylist: tool<{
     try {
       const tracks = trackIds.map((id) => ({ uri: `spotify:track:${id}` }));
 
-      await handleSpotifyRequest(async (spotifyApi) => {
-        await spotifyApi.playlists.removeItemsFromPlaylist(playlistId, {
-          tracks,
-          ...(snapshotId ? { snapshot_id: snapshotId } : {}),
-        });
-      });
+      await spotifyFetch<{ snapshot_id: string }>(
+        `/playlists/${encodeURIComponent(playlistId)}/items`,
+        {
+          method: 'DELETE',
+          body: JSON.stringify({
+            tracks,
+            ...(snapshotId ? { snapshot_id: snapshotId } : {}),
+          }),
+        },
+      );
 
       return {
         content: [
@@ -246,14 +250,18 @@ const reorderPlaylistItems: tool<{
       args;
 
     try {
-      await handleSpotifyRequest(async (spotifyApi) => {
-        await spotifyApi.playlists.updatePlaylistItems(playlistId, {
-          range_start: rangeStart,
-          insert_before: insertBefore,
-          ...(rangeLength !== undefined ? { range_length: rangeLength } : {}),
-          ...(snapshotId ? { snapshot_id: snapshotId } : {}),
-        });
-      });
+      await spotifyFetch<{ snapshot_id: string }>(
+        `/playlists/${encodeURIComponent(playlistId)}/items`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            range_start: rangeStart,
+            insert_before: insertBefore,
+            ...(rangeLength !== undefined ? { range_length: rangeLength } : {}),
+            ...(snapshotId ? { snapshot_id: snapshotId } : {}),
+          }),
+        },
+      );
 
       const count = rangeLength ?? 1;
       return {

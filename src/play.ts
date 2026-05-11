@@ -1,6 +1,7 @@
+import type { Playlist } from '@spotify/web-api-ts-sdk';
 import { z } from 'zod';
 import type { SpotifyHandlerExtra, tool } from './types.js';
-import { handleSpotifyRequest } from './utils.js';
+import { handleSpotifyRequest, spotifyFetch } from './utils.js';
 
 const playMusic: tool<{
   uri: z.ZodOptional<z.ZodString>;
@@ -182,14 +183,13 @@ const createPlaylist: tool<{
   handler: async (args, _extra: SpotifyHandlerExtra) => {
     const { name, description, public: isPublic = false } = args;
 
-    const result = await handleSpotifyRequest(async (spotifyApi) => {
-      const me = await spotifyApi.currentUser.profile();
-
-      return await spotifyApi.playlists.createPlaylist(me.id, {
+    const result = await spotifyFetch<Playlist>('/me/playlists', {
+      method: 'POST',
+      body: JSON.stringify({
         name,
         description,
         public: isPublic,
-      });
+      }),
     });
 
     return {
@@ -236,13 +236,16 @@ const addTracksToPlaylist: tool<{
     try {
       const trackUris = trackIds.map((id) => `spotify:track:${id}`);
 
-      await handleSpotifyRequest(async (spotifyApi) => {
-        await spotifyApi.playlists.addItemsToPlaylist(
-          playlistId,
-          trackUris,
-          position,
-        );
-      });
+      await spotifyFetch<{ snapshot_id: string }>(
+        `/playlists/${encodeURIComponent(playlistId)}/items`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            uris: trackUris,
+            ...(position !== undefined ? { position } : {}),
+          }),
+        },
+      );
 
       return {
         content: [
