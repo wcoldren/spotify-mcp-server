@@ -1,4 +1,9 @@
-import type { MaxInt, Page, PlaylistedTrack } from '@spotify/web-api-ts-sdk';
+import type {
+  MaxInt,
+  Page,
+  PlaylistedTrack,
+  SimplifiedPlaylist,
+} from '@spotify/web-api-ts-sdk';
 import { z } from 'zod';
 import type { SpotifyHandlerExtra, SpotifyTrack, tool } from './types.js';
 import {
@@ -18,6 +23,16 @@ function isTrack(item: any): item is SpotifyTrack {
     typeof item.album.name === 'string'
   );
 }
+
+// Feb 2026 API migration: response field `track` renamed to `item` inside
+// paginated playlist track entries. SDK types still use `track`.
+type PlaylistedTrackV2 = PlaylistedTrack & { item?: PlaylistedTrack['track'] };
+
+// Feb 2026 API migration: response field `tracks` renamed to `items` on
+// SimplifiedPlaylist. SDK types still use `tracks`.
+type SimplifiedPlaylistV2 = SimplifiedPlaylist & {
+  items?: SimplifiedPlaylist['tracks'];
+};
 
 const searchSpotify: tool<{
   query: z.ZodString;
@@ -235,8 +250,10 @@ const getMyPlaylists: tool<{
     }
 
     const formattedPlaylists = playlists.items
-      .map((playlist, i) => {
-        const tracksTotal = playlist.tracks?.total ? playlist.tracks.total : 0;
+      .map((p, i) => {
+        const playlist = p as SimplifiedPlaylistV2;
+        const trackInfo = playlist.items ?? playlist.tracks;
+        const tracksTotal = trackInfo?.total ?? 0;
         return `${i + 1}. "${playlist.name}" (${tracksTotal} tracks) - ID: ${
           playlist.id
         }`;
@@ -282,7 +299,7 @@ const getPlaylistTracks: tool<{
       limit: String(limit),
       offset: String(offset),
     });
-    const playlistTracks = await spotifyFetch<Page<PlaylistedTrack>>(
+    const playlistTracks = await spotifyFetch<Page<PlaylistedTrackV2>>(
       `/playlists/${encodeURIComponent(playlistId)}/items?${qs.toString()}`,
     );
 
@@ -299,7 +316,7 @@ const getPlaylistTracks: tool<{
 
     const formattedTracks = playlistTracks.items
       .map((item, i) => {
-        const { track } = item;
+        const track = item.item ?? item.track;
         if (!track) return `${offset + i + 1}. [Removed track]`;
 
         if (isTrack(track)) {

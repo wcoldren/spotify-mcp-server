@@ -1,6 +1,11 @@
+import type { Playlist } from '@spotify/web-api-ts-sdk';
 import { z } from 'zod';
 import type { SpotifyHandlerExtra, tool } from './types.js';
 import { handleSpotifyRequest, spotifyFetch } from './utils.js';
+
+// Feb 2026 API migration: response field `tracks` renamed to `items` on
+// Playlist. SDK types still use `tracks`.
+type PlaylistV2 = Playlist & { items?: Playlist['tracks'] };
 
 const getPlaylist: tool<{
   playlistId: z.ZodString;
@@ -15,13 +20,14 @@ const getPlaylist: tool<{
     const { playlistId } = args;
 
     try {
-      const playlist = await handleSpotifyRequest(async (spotifyApi) => {
+      const playlist = (await handleSpotifyRequest(async (spotifyApi) => {
         return await spotifyApi.playlists.getPlaylist(playlistId);
-      });
+      })) as PlaylistV2;
 
       const owner =
         playlist.owner?.display_name ?? playlist.owner?.id ?? 'Unknown';
-      const tracksTotal = playlist.tracks?.total ?? 0;
+      const trackInfo = playlist.items ?? playlist.tracks;
+      const tracksTotal = trackInfo?.total ?? 0;
       const isPublic = playlist.public ? 'Public' : 'Private';
       const isCollaborative = playlist.collaborative ? ' | Collaborative' : '';
       const description = playlist.description
