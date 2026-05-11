@@ -173,14 +173,14 @@ const removeTracksFromPlaylist: tool<{
     const { playlistId, trackIds, snapshotId } = args;
 
     try {
-      const tracks = trackIds.map((id) => ({ uri: `spotify:track:${id}` }));
+      const items = trackIds.map((id) => ({ uri: `spotify:track:${id}` }));
 
       await spotifyFetch<{ snapshot_id: string }>(
         `/playlists/${encodeURIComponent(playlistId)}/items`,
         {
           method: 'DELETE',
           body: JSON.stringify({
-            tracks,
+            items,
             ...(snapshotId ? { snapshot_id: snapshotId } : {}),
           }),
         },
