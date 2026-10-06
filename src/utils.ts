@@ -56,7 +56,7 @@ export async function createSpotifyApi(): Promise<SpotifyApi> {
     const shouldRefresh = !config.expiresAt || config.expiresAt <= now;
 
     if (shouldRefresh) {
-      console.log(
+      console.error(
         'Access token expired or missing expiration time, refreshing...',
       );
       try {
@@ -64,7 +64,7 @@ export async function createSpotifyApi(): Promise<SpotifyApi> {
         config.accessToken = tokens.access_token;
         config.expiresAt = now + tokens.expires_in * 1000; // Convert seconds to milliseconds
         saveSpotifyConfig(config);
-        console.log('Access token refreshed successfully');
+        console.error('Access token refreshed successfully');
 
         // Clear cached API instance to force recreation with new token
         cachedSpotifyApi = null;
@@ -299,7 +299,7 @@ export async function authorizeSpotify(): Promise<void> {
           res.end(
             '<html><body><h1>Authentication Successful!</h1><p>You can now close this window and return to the application.</p></body></html>',
           );
-          console.log(
+          console.error(
             'Authentication successful! Access token has been saved.',
           );
 
@@ -320,16 +320,16 @@ export async function authorizeSpotify(): Promise<void> {
     });
 
     server.listen(Number.parseInt(port), '127.0.0.1', () => {
-      console.log(
+      console.error(
         `Listening for Spotify authentication callback on port ${port}`,
       );
-      console.log('Opening browser for authorization...');
+      console.error('Opening browser for authorization...');
 
       open(authorizationUrl).catch((_error: Error) => {
-        console.log(
+        console.error(
           'Failed to open browser automatically. Please visit this URL to authorize:',
         );
-        console.log(authorizationUrl);
+        console.error(authorizationUrl);
       });
     });
 
